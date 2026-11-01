@@ -112,7 +112,7 @@ The change request can come before or after the deploy starts. It covers a versi
 | Guarantee | How | Where |
 |---|---|---|
 | Only approved repos exist and deploy | Repos are created from the manifest. Deploys of repos not active in it are rejected | `org-config/repos/`, rule set `platform-integrity` |
-| Mandatory scan on every change | Template scan job signs its result. Gate requires it from the template | `ci-templates` `node-build.yml`, rule set `scanned` |
+| Mandatory scans on every change: secrets, SonarQube | `scan.yml` runs them in its own job and signs the result. Gate requires it from `scan.yml` | `ci-templates` `scan.yml`, rule set `scanned` |
 | Workflow changes reviewed by a sentinel | Gate requires a sentinel's PR approval when `.github/workflows/` changes | Rule set `workflow-sentinel` |
 | Prod deploys only through the central template | Gate checks the deploy used `deploy.yml` | Rule set `central-deploy` |
 | Prod deploys approved by the owning team, not the requester or deployer | Change request approvers checked against the owning team | `change-requests`, rule sets `change-team`, `change-two-person` |
