@@ -45,6 +45,42 @@ flowchart LR
 - **Rules are data, rule types are code.** Rule sets in `org-config` pick and configure rule types written in `platform-gate`.
 - **Results from team pipelines count only if signed.** The template's scan runs in its own job and signs its result. The gate checks the signer is the central template, not the team's workflow.
 
+## Gates and rule sets
+
+The gate checks every PR before merge and every deploy before it gets its environment. What it checks comes from **rule sets**: small named groups of rules, kept as YAML in `org-config`.
+
+- Every repo gets the baseline sets. Its manifest entry adds more, per environment.
+- **Hard** sets must pass. **Soft** sets, such as deploy hours, can be overridden by an emergency change with break-glass approvals.
+- Changing what a repo needs is a one-line manifest change. A new kind of check is a new rule type in `platform-gate`.
+
+<details>
+<summary>Example: what payments-web needs to deploy to prod</summary>
+
+```yaml
+# org-config/baseline.yaml: every repo
+deploy: [platform-integrity, central-deploy, green-pipeline, deploy-window]
+
+# org-config/repos/payments.yaml: this repo, prod only
+deploy:
+  prod: [from-main, change-team, scanned]
+```
+
+The deploy needs all seven sets to pass: the repo is active, the deploy uses the central template, the pipeline is green, it is inside deploy hours, the commit is on `main` and passed the merge gate, a change request approved by the team covers it, and the template's signed scan passed.
+</details>
+
+All rule sets and what they check: [org-config: Rule sets](https://github.com/Stefan-org-1/org-config#rule-sets).
+
+## Teams change their pipelines safely
+
+Teams own their `ci.yml`. They add jobs, configure templates through inputs, and add build steps through hooks, without asking platform. None of that can skip a guardrail, because the guardrails are not in the team's workflow:
+
+- **Gates live outside the repo's workflows.** The merge check is required by a repo ruleset and the deploy waits on an environment rule. Teams have write access, not admin, so they cannot change either.
+- **Mandatory checks prove where they ran.** The scan signs its result as the central template. A team job that fakes it signs as the team's workflow and is rejected.
+- **Team code runs apart from mandatory checks.** Hooks run in the build job. The scan runs in its own job, on a fresh runner, from a fresh checkout.
+- **Workflow changes need a sentinel's review**, and third-party actions must be on the allow-list and pinned to a commit SHA.
+
+What teams can change, and what each bypass attempt runs into: [ci-templates: Customizing your pipeline](https://github.com/Stefan-org-1/ci-templates#customizing-your-pipeline).
+
 ## A release, end to end
 
 ```mermaid
