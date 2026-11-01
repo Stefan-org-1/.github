@@ -8,7 +8,9 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 
 | Repo | What it holds | Owner |
 |---|---|---|
-| [org-config](https://github.com/Stefan-org-1/org-config) | Manifest of approved repos, teams and members, rule sets, Terraform that applies them | Platform, teams edit their own file |
+| [org-manifest](https://github.com/Stefan-org-1/org-manifest) | Approved repos, teams and members, and the rule sets each repo picks | Teams edit their own file. Their sentinels or managers approve |
+| [org-policy](https://github.com/Stefan-org-1/org-policy) | Rule sets, baseline, break-glass, Actions allow-list | Platform |
+| [org-terraform](https://github.com/Stefan-org-1/org-terraform) | Terraform that applies the manifest and policy to GitHub | Platform |
 | [ci-templates](https://github.com/Stefan-org-1/ci-templates) | Reusable build, scan and deploy workflows, versioned by major tag | Platform |
 | [platform-gate](https://github.com/Stefan-org-1/platform-gate) | The gate: a GitHub App that checks PRs and approves or rejects deploys | Platform |
 | [change-requests](https://github.com/Stefan-org-1/change-requests) | Approved deploys: version, environments, window, approvers. Stands in for Jira or ServiceNow | Platform, teams add changes |
@@ -19,8 +21,9 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 ```mermaid
 flowchart LR
   subgraph Platform
-    OC["org-config<br/>manifest, teams, rule sets"]
-    TF["Terraform"]
+    OM["org-manifest<br/>repos, teams, members"]
+    OP["org-policy<br/>rule sets, baseline"]
+    TF["org-terraform"]
     CT["ci-templates<br/>build, scan, deploy"]
     GATE["platform-gate<br/>GitHub App"]
   end
@@ -30,24 +33,26 @@ flowchart LR
   end
   ATT[("Signed scan<br/>results")]
 
-  OC -->|applied by| TF
+  OM -->|applied by| TF
+  OP -->|allow-list| TF
   TF -->|repos, teams, rulesets,<br/>environments, Actions policy| APP
   APP -->|calls| CT
   CT -->|signs| ATT
-  OC -->|rule sets, manifest| GATE
+  OM -->|manifest| GATE
+  OP -->|rule sets| GATE
   CR -->|changes| GATE
   ATT -->|verified by| GATE
   GATE -->|merge check,<br/>deploy approve or reject| APP
 ```
 
-- **org-config is the source of truth.** Terraform applies it to GitHub. The gate reads it on every check.
+- **org-manifest and org-policy are the source of truth.** org-terraform applies them to GitHub. The gate reads them on every check. Each has one owner: teams own their manifest file, platform owns policy and Terraform.
 - **The gate's mark cannot be forged.** Rulesets require the `policy` check from the App's ID, and the App is the protection rule on `prod`. Only the holder of its private key can act as it.
-- **Rules are data, rule types are code.** Rule sets in `org-config` pick and configure rule types written in `platform-gate`.
+- **Rules are data, rule types are code.** Rule sets in `org-policy` pick and configure rule types written in `platform-gate`.
 - **Results from team pipelines count only if signed.** The template's scan runs in its own job and signs its result. The gate checks the signer is the central template, not the team's workflow.
 
 ## Gates and rule sets
 
-The gate checks every PR before merge and every deploy before it gets its environment. What it checks comes from **rule sets**: small named groups of rules, kept as YAML in `org-config`.
+The gate checks every PR before merge and every deploy before it gets its environment. What it checks comes from **rule sets**: small named groups of rules, kept as YAML in `org-policy`. Each repo picks its sets in `org-manifest`.
 
 - Every repo gets the baseline sets. Its manifest entry adds more, per environment.
 - **Hard** sets must pass. **Soft** sets, such as deploy hours, can be overridden by an emergency change with break-glass approvals.
@@ -57,12 +62,12 @@ The gate checks every PR before merge and every deploy before it gets its enviro
 <summary>Example: what payments-web needs in each environment</summary>
 
 ```yaml
-# org-config/baseline.yaml: every repo
+# org-policy/baseline.yaml: every repo
 deploy:
   all: [platform-integrity, central-deploy, green-pipeline]
   prod: [deploy-window]
 
-# org-config/repos/payments.yaml: this repo
+# org-manifest/repos/payments.yaml: this repo
 deploy:
   test: [from-main, scanned]
   staging: [released, scanned]
@@ -74,7 +79,7 @@ A prod deploy needs all eight sets to pass: the repo is active, the deploy uses 
 Each key under `deploy` is an environment, so an app gets the environments it lists.
 </details>
 
-All rule sets and what they check: [org-config: Rule sets](https://github.com/Stefan-org-1/org-config#rule-sets).
+All rule sets and what they check: [org-policy: Rule sets](https://github.com/Stefan-org-1/org-policy#rule-sets).
 
 ## Teams change their pipelines safely
 
@@ -131,15 +136,16 @@ sequenceDiagram
 
 | Guarantee | How | Where |
 |---|---|---|
-| Only approved repos exist and deploy | Repos are created from the manifest. Deploys of repos not active in it are rejected | `org-config/repos/`, rule set `platform-integrity` |
+| Org changes are reviewed by the right people | GitHub requires code-owner review: a team's sentinels or managers for its manifest file, platform for the rest. A validator rejects tampering | `org-manifest` `CODEOWNERS` and `validate.py` |
+| Only approved repos exist and deploy | Repos are created from the manifest. Deploys of repos not active in it are rejected | `org-manifest`, rule set `platform-integrity` |
 | Mandatory scans on every change: secrets, SonarQube | `scan.yml` runs them in its own job and signs the result. Gate requires it from `scan.yml` | `ci-templates` `scan.yml`, rule set `scanned` |
 | Workflow changes reviewed by a sentinel | Gate requires a sentinel's PR approval when `.github/workflows/` changes | Rule set `workflow-sentinel` |
 | Prod deploys only through the central template | Gate checks the deploy used `deploy.yml` | Rule set `central-deploy` |
 | Prod deploys approved by the owning team, not the requester or deployer | Change request approvers checked against the owning team | `change-requests`, rule sets `change-team`, `change-two-person` |
 | Prod gets only releases, tested in staging first | Release tags are immutable. The gate requires a release on `main` or `release/X.Y.z`, deployed to staging | Rule sets `released`, `staged`, tag ruleset `release-tags` |
 | Green CI, inside deploy hours | Soft rule sets, overridable by an emergency change | Rule sets `green-pipeline`, `deploy-window` |
-| Break-glass is approved outside the deployer and time-limited | Emergency change, at most 24 hours, needs a sentinel and a manager of the owning team | `org-config/baseline.yaml` |
-| Third-party actions allow-listed and pinned to a SHA | Org Actions policy | `org-config/actions-allowlist.yaml`, Terraform |
+| Break-glass is approved outside the deployer and time-limited | Emergency change, at most 24 hours, needs a sentinel and a manager of the owning team | `org-policy/baseline.yaml` |
+| Third-party actions allow-listed and pinned to a SHA | Org Actions policy | `org-policy/actions-allowlist.yaml`, `org-terraform` |
 | Template fixes reach every repo, breaking changes are opt-in | Each template has its own moving major tag, such as `scan-v1` | `ci-templates` |
 
 Every gate result lists what was not met and how the rest was met: which change approved, which release and staging deploy, who signed the scan. Each line links to its rule set's definition.
@@ -150,7 +156,7 @@ Every gate result lists what was not met and how the rest was met: which change 
 - `group-sentinels`, `group-managers`: senior engineers and managers across teams.
 - `sentinels-<area>`, `managers-<area>`: the owning team's own sentinels and managers, nested under the groups.
 
-Membership is declared in `org-config` and applied by Terraform.
+Membership is declared in `org-manifest` and applied by `org-terraform`.
 
 ## More
 

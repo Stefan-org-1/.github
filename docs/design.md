@@ -37,7 +37,7 @@ If the App is down, checks stay pending and deploys wait. The gate fails closed.
 - `team-<area>`: product teams. Own their code.
 - `group-sentinels`, `group-managers`: cross-team groups.
 - `sentinels-<area>`, `managers-<area>`: nested under the groups. Used where approval must come from the owning team, such as `prod` reviewers.
-- Membership is declared in `org-config` and applied by Terraform.
+- Membership is declared in `org-manifest` and applied by `org-terraform`.
 
 ## Trusting results from team pipelines
 
