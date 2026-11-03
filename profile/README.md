@@ -11,7 +11,7 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 - **Releases move through test, staging and prod.** Merging only runs CI. Releases are immutable `X.Y.Z` tags. Prod takes only a release that went to staging first, inside deploy hours, covered by a change request approved by the owning team, never by the requester or deployer.
 - **Mandatory scans prove where they ran.** The central scan template signs its result. The gate accepts only results signed by that template, not by a team's workflow.
 - **Prod deploys to Azure with no stored secret.** The deploy job logs in with GitHub's OIDC token. Azure trusts the token only if it names the repo, the environment and the central deploy template. [Shown](#deploy-credentials): a rogue job that got through review, release, staging and change approval was refused by Azure, while the template's job deployed.
-- **The org is code.** Repos, teams, rulesets, environments and the Actions policy come from reviewed files. Terraform plans every hour and on every change, and a person approves each apply. Changes made by hand are reverted.
+- **The org is code.** Repos, teams, rulesets, environments and the Actions policy come from reviewed files. Terraform plans every hour and on every change, and a person approves each apply. A change made by hand shows up in the next plan, and the next approved apply reverts it.
 - **Templates are versioned per template.** Fixes reach every repo through a moving major tag. Breaking changes ship as the next major, which teams adopt with a PR.
 
 ## Found along the way
