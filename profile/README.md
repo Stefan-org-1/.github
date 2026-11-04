@@ -23,7 +23,7 @@ What broke or surprised, and what changed because of it:
 | The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in the backlog |
 | Repos created after 2026-07-15 get immutable IDs in their OIDC subject: `repo:Stefan-org-1@350111267/payments-web@1439253121` | Trust rules copied from the deploy log, not written from memory |
 | A major template version is part of the cloud trust rule | `deploy-v2`, not a change to v1. Wildcard matching exists in Azure but is in preview, so not used |
-| `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Not prevented: org changes have no test org to apply to first |
+| `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Open: nothing found it before the apply |
 | A reviewer team without access to the repo is silently dropped from an environment, leaving nobody able to approve the apply | Fixed with a break-glass apply from a laptop, recorded on the PR |
 | A merge that bypasses the `policy` check can never be released or deployed to prod | By design. Bypasses are for platform repos, not product code |
 | Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. A webhook relay is in the backlog |
@@ -224,7 +224,7 @@ Details: [org-terraform](https://github.com/Stefan-org-1/org-terraform#how-chang
 - The gate runs on a schedule, not on events.
 - The gate's protection rule is attached to environments by hand, so Terraform does not restore it.
 - Change requests are trusted as written. A real change system records who approved.
-- Org Terraform has no test org. A change is first applied to the real org, so failures like a missing App permission show up there, partway through an apply.
+- A plan cannot show whether the apply will be allowed, so a missing permission first shows up as a partial apply on the real org. No clear answer yet: a test org only helps if it matches the real one exactly.
 
 ## Teams
 
