@@ -21,11 +21,9 @@ What broke or surprised, and what changed because of it:
 | Finding | Result |
 |---|---|
 | The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in the backlog |
-| GitHub masks secrets in logs, including base64. The job still holds the secret and can send it anywhere | Log masking is not a security boundary. Prod credentials do not belong in GitHub secrets |
 | Repos created after 2026-07-15 get immutable IDs in their OIDC subject: `repo:Stefan-org-1@350111267/payments-web@1439253121` | Trust rules copied from the deploy log, not written from memory |
-| An org OIDC subject template does nothing until each repo opts in | Set per repo by Terraform |
 | A major template version is part of the cloud trust rule | `deploy-v2`, not a change to v1. Wildcard matching exists in Azure but is in preview, so not used |
-| `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Fixed the permission and applied the rest. Terraform has no rollback, and state recorded what succeeded |
+| `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Not prevented: org changes have no test org to apply to first |
 | A reviewer team without access to the repo is silently dropped from an environment, leaving nobody able to approve the apply | Fixed with a break-glass apply from a laptop, recorded on the PR |
 | A merge that bypasses the `policy` check can never be released or deployed to prod | By design. Bypasses are for platform repos, not product code |
 | Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. A webhook relay is in the backlog |
@@ -226,6 +224,7 @@ Details: [org-terraform](https://github.com/Stefan-org-1/org-terraform#how-chang
 - The gate runs on a schedule, not on events.
 - The gate's protection rule is attached to environments by hand, so Terraform does not restore it.
 - Change requests are trusted as written. A real change system records who approved.
+- Org Terraform has no test org. A change is first applied to the real org, so failures like a missing App permission show up there, partway through an apply.
 
 ## Teams
 
