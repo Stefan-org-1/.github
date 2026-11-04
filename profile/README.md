@@ -21,11 +21,9 @@ What broke or surprised, and what changed because of it:
 | Finding | Result |
 |---|---|
 | The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in the backlog |
-| Repos created after 2026-07-15 get immutable IDs in their OIDC subject: `repo:Stefan-org-1@350111267/payments-web@1439253121` | Trust rules copied from the deploy log, not written from memory |
 | A major template version is part of the cloud trust rule | `deploy-v2`, not a change to v1. Wildcard matching exists in Azure but is in preview, so not used |
 | `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Open: nothing found it before the apply |
-| A reviewer team without access to the repo is silently dropped from an environment, leaving nobody able to approve the apply | Fixed with a break-glass apply from a laptop, recorded on the PR |
-| A merge that bypasses the `policy` check can never be released or deployed to prod | By design. Bypasses are for platform repos, not product code |
+| A merge that bypasses the `policy` check cannot be released or deployed to prod. An emergency change cannot override it either: `released` is a hard rule set | By design: the check is the proof of review. An urgent fix goes through a fast PR, not a bypass |
 | Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. A webhook relay is in the backlog |
 
 ## Repos
