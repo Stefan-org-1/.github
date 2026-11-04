@@ -14,18 +14,6 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 - **The org is code.** Repos, teams, rulesets, environments and the Actions policy come from reviewed files, and Terraform applies them once a person approves. With the whole org as data in one place, questions become queries: which repos deploy to prod without a change request, who can approve for each team, which repos are critical. Git history shows every change, who approved it and why.
 - **Templates are versioned per template.** Fixes reach every repo through a moving major tag. Breaking changes ship as the next major, which teams adopt with a PR.
 
-## Found along the way
-
-What broke or surprised, and what changed because of it:
-
-| Finding | Result |
-|---|---|
-| The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in [next steps](#next-steps) |
-| A major template version is part of the cloud trust rule | `deploy-v2`, not a change to v1. Wildcard matching exists in Azure but is in preview, so not used |
-| `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Open: nothing found it before the apply |
-| A merge that bypasses the `policy` check cannot be released or deployed to prod. An emergency change cannot override it either: `released` is a hard rule set | By design: the check is the proof of review. An urgent fix still goes through a PR; an emergency change skips only deploy hours and staging |
-| Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. [Next steps](#next-steps): gate on events |
-
 ## Next steps
 
 The bigger pieces worth building next, each with the problem and the approach.
@@ -297,6 +285,18 @@ Details: [org-terraform](https://github.com/Stefan-org-1/org-terraform#how-chang
 - `group-org-approvers`: who approves org changes.
 
 Membership is declared in [`org-manifest`](https://github.com/Stefan-org-1/org-manifest) and applied by [`org-terraform`](https://github.com/Stefan-org-1/org-terraform).
+
+## Found along the way
+
+What broke or surprised, and what changed because of it:
+
+| Finding | Result |
+|---|---|
+| The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in [next steps](#next-steps) |
+| A major template version is part of the cloud trust rule | `deploy-v2`, not a change to v1. Wildcard matching exists in Azure but is in preview, so not used |
+| `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Open: nothing found it before the apply |
+| A merge that bypasses the `policy` check cannot be released or deployed to prod. An emergency change cannot override it either: `released` is a hard rule set | By design: the check is the proof of review. An urgent fix still goes through a PR; an emergency change skips only deploy hours and staging |
+| Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. [Next steps](#next-steps): gate on events |
 
 ## More
 
