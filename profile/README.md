@@ -21,11 +21,71 @@ What broke or surprised, and what changed because of it:
 
 | Finding | Result |
 |---|---|
-| The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in the backlog |
+| The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in [next steps](#next-steps) |
 | A major template version is part of the cloud trust rule | `deploy-v2`, not a change to v1. Wildcard matching exists in Azure but is in preview, so not used |
 | `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Open: nothing found it before the apply |
 | A merge that bypasses the `policy` check cannot be released or deployed to prod. An emergency change cannot override it either: `released` is a hard rule set | By design: the check is the proof of review. An urgent fix still goes through a PR; an emergency change skips only deploy hours and staging |
-| Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. A webhook relay is in the backlog |
+| Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. [Next steps](#next-steps): gate on events |
+
+## Next steps
+
+The bigger pieces worth building next, each with the problem and the approach.
+
+<details>
+<summary><b>Exceptions</b></summary>
+
+**Problem:** a team that cannot meet a rule, such as a scan finding with no fix yet, has no way to ask. The choice is to block them or to bypass the gate, and neither leaves a record.
+
+**Approach:** the change request pattern. An exception is a reviewed file in its own repo naming the repo, environments, the rule or finding waived, a reason, a compensating control and an expiry. Security approves it, not the team asking. Rule sets mark which rules are waivable. The verdict shows the waiver on every deploy, and the gate fails again when it expires. Waiving one finding rather than a whole scan needs a stable fingerprint for findings across scans.
+</details>
+
+<details>
+<summary><b>Gate rejects jobs the template did not define</b></summary>
+
+**Problem:** GitHub approves a deploy per run and environment, not per job. A job a team adds with `environment: prod` passes with the template's job and gets the environment's secrets. OIDC already keeps it away from Azure.
+
+**Approach:** the gate reads the workflow file at the deploy's commit and rejects the run if any job outside a template call names a protected environment. `environment:` can be an expression, so a job whose environment it cannot resolve is rejected too.
+</details>
+
+<details>
+<summary><b>Azure identities and trust rules in Terraform</b></summary>
+
+**Problem:** the identity, role and trust rule were created in the portal. Each new repo, environment or template major is hand work, and nothing reverts a hand change.
+
+**Approach:** a separate Terraform stack fed by `org-manifest`, with one trust rule per template major. Deleting an old major's rule is the migration deadline. The stack logs in to Azure with OIDC from its own workflow. It stays apart from the GitHub stack so one apply cannot break both.
+</details>
+
+<details>
+<summary><b>Change approvals from reviews, not from the file</b></summary>
+
+**Problem:** a change request lists its approvers as text. The gate trusts the list, so whoever edits the file can name anyone.
+
+**Approach:** the gate reads who approved the PR that merged the change file and checks those people against the required slots. The `approvers` field goes away.
+</details>
+
+<details>
+<summary><b>Gate on events, not a schedule</b></summary>
+
+**Problem:** the gate polls every 10 minutes, and GitHub once skipped its schedule for 7 hours. Deploys and PRs wait with no error.
+
+**Approach:** the App receives webhooks for PRs and deployment protection requests and runs the gate per event. The schedule stays as a sweep for missed events.
+</details>
+
+<details>
+<summary><b>Only the release template creates release tags</b></summary>
+
+**Problem:** anyone with write access can push an `X.Y.Z` tag by hand and skip the release checks. The gate checks again at deploy, but the version is used up.
+
+**Approach:** a platform service the team triggers, which runs the checks and tags as the App. A tag ruleset then lets only the App create release tags. A token handed to the team's workflow would not work, since the team's own jobs could read it.
+</details>
+
+<details>
+<summary><b>Targets without OIDC</b></summary>
+
+**Problem:** databases, SSH hosts and many partner APIs cannot trust GitHub's token, so their credentials end up as stored secrets.
+
+**Approach:** a broker such as Vault trusts the GitHub token, with the same template-bound claims, and hands out short-lived credentials for those targets.
+</details>
 
 ## Repos
 
@@ -217,13 +277,9 @@ Details: [org-terraform](https://github.com/Stefan-org-1/org-terraform#how-chang
 
 ## Known gaps
 
-- The gate approves every job in a run that names the environment. It should reject jobs not defined by the deploy template.
-- Azure identities and trust rules were created in the portal. They belong in Terraform, generated from the manifest, with one rule per template major.
 - Only payments-web prod uses OIDC. Test and staging have no Azure identity.
 - Anyone who can tag `ci-templates` can create a trusted template version. A tag ruleset should limit that to platform.
-- The gate runs on a schedule, not on events.
 - The gate's protection rule is attached to environments by hand, so Terraform does not restore it.
-- Change requests are trusted as written. A real change system records who approved.
 - A plan cannot show whether the apply will be allowed, so a missing permission first shows up as a partial apply on the real org. No clear answer yet: a test org only helps if it matches the real one exactly.
 
 ## Teams
