@@ -8,7 +8,6 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 
 - **Gates are GitHub Apps, outside team repos.** An App can be a required merge check and a protection rule on deploy environments. The lab runs one, [`platform-gate`](https://github.com/Stefan-org-1/platform-gate), for both; another App can be added where a gate needs its own permissions or owner. Because the gates sit outside the repo, teams change their own pipelines without waiting on platform, and every change is still held to the required practices. Teams get write access, not admin: enough to rework their pipeline, not enough to remove a gate.
 - **Rules are data, chosen per repo.** Rule sets in [`org-policy`](https://github.com/Stefan-org-1/org-policy) pick and configure rule types coded in the gate. Every repo gets a baseline, then picks more per environment in [`org-manifest`](https://github.com/Stefan-org-1/org-manifest), so a critical payments service and an internal tool can need different checks without separate pipelines. Every verdict lists what was met and not met, with links to the rule's definition.
-- **Releases move through test, staging and prod.** Merging only runs CI. Releases are immutable `X.Y.Z` tags. Prod takes only a release that went to staging first.
 - **Change requests, where a repo's rule sets ask for one.** A change request is a reviewed file in [`change-requests`](https://github.com/Stefan-org-1/change-requests), naming the version, environments and a window. Someone on the owning team approves it, never the requester or deployer. An emergency change, approved by a sentinel and a manager and lasting at most 24 hours, overrides soft rules such as deploy hours and staging. It never overrides review, scans or the release.
 - **Mandatory scans prove where they ran.** The central scan template signs its result. The gate accepts only results signed by that template, not by a team's workflow.
 - **Prod deploys to Azure with no stored secret.** The deploy job logs in with GitHub's OIDC token. Azure trusts the token only if it names the repo, the environment and the central deploy template. [Shown](#deploy-credentials): a rogue job that got through review, release, staging and change approval was refused by Azure, while the template's job deployed.
@@ -53,6 +52,14 @@ The bigger pieces worth building next, each with the problem and the approach.
 **Problem:** the identity, role and trust rule were created in the portal. Each new repo, environment or template major is hand work, and nothing reverts a hand change.
 
 **Approach:** a separate Terraform stack fed by [`org-manifest`](https://github.com/Stefan-org-1/org-manifest), with one trust rule per template major. Deleting an old major's rule is the migration deadline. The stack logs in to Azure with OIDC from its own workflow. It stays apart from the GitHub stack so one apply cannot break both.
+</details>
+
+<details>
+<summary><b>Promote artifacts, not commits</b></summary>
+
+**Problem:** prod requires that the same commit went to staging first, not the same artifact. Each deploy could build again, so what runs in prod may differ from what was tested.
+
+**Approach:** a template builds once and signs the artifact's digest, as the scan template signs its result. Every deploy takes the digest, not the commit. The gate checks that the digest was signed by the build template and that the same digest deployed to staging.
 </details>
 
 <details>
