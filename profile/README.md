@@ -63,11 +63,11 @@ The bigger pieces worth building next, each with the problem and the approach.
 </details>
 
 <details>
-<summary><b>Change approvals from reviews, not from the file</b></summary>
+<summary><b>Read changes from the change system</b></summary>
 
-**Problem:** a change request lists its approvers as text. The gate trusts the list, so whoever edits the file can name anyone.
+**Problem:** `change-requests` mocks the outcome of a change process. Its approvers are text, so whoever edits a file can name anyone.
 
-**Approach:** the gate reads who approved the PR that merged the change file and checks those people against the required slots. The `approvers` field goes away.
+**Approach:** the gate reads approved changes from the change system's API, such as Jira or ServiceNow, which records who approved and when. The gate keeps its own check of approvers against the required slots.
 </details>
 
 <details>
@@ -103,7 +103,7 @@ The bigger pieces worth building next, each with the problem and the approach.
 | [org-terraform](https://github.com/Stefan-org-1/org-terraform) | Terraform that applies the manifest and policy to GitHub, and the OIDC settings | Platform |
 | [ci-templates](https://github.com/Stefan-org-1/ci-templates) | Reusable build, scan, release and deploy workflows, versioned per template | Platform |
 | [platform-gate](https://github.com/Stefan-org-1/platform-gate) | The gate: a GitHub App that checks PRs and approves or rejects deploys | Platform |
-| [change-requests](https://github.com/Stefan-org-1/change-requests) | Approved deploys: version, environments, window, approvers. Stands in for Jira or ServiceNow | Platform, teams add changes |
+| [change-requests](https://github.com/Stefan-org-1/change-requests) | Approved deploys: version, environments, window, approvers. Mocks the outcome a change system such as Jira or ServiceNow would hold | Platform, teams add changes |
 | [payments-web](https://github.com/Stefan-org-1/payments-web) | Example product repo | team-payments |
 
 ## How the pieces fit
