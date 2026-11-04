@@ -6,10 +6,10 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 
 ## Highlights
 
-- **Gates are GitHub Apps, outside team repos.** An App can be a required merge check and a protection rule on deploy environments. The lab runs one, `platform-gate`, for both; another App can be added where a gate needs its own permissions or owner. Because the gates sit outside the repo, teams change their own pipelines without waiting on platform, and every change is still held to the required practices. Teams get write access, not admin: enough to rework their pipeline, not enough to remove a gate.
-- **Rules are data, chosen per repo.** Rule sets in `org-policy` pick and configure rule types coded in the gate. Every repo gets a baseline, then picks more per environment in `org-manifest`, so a critical payments service and an internal tool can need different checks without separate pipelines. Every verdict lists what was met and not met, with links to the rule's definition.
+- **Gates are GitHub Apps, outside team repos.** An App can be a required merge check and a protection rule on deploy environments. The lab runs one, [`platform-gate`](https://github.com/Stefan-org-1/platform-gate), for both; another App can be added where a gate needs its own permissions or owner. Because the gates sit outside the repo, teams change their own pipelines without waiting on platform, and every change is still held to the required practices. Teams get write access, not admin: enough to rework their pipeline, not enough to remove a gate.
+- **Rules are data, chosen per repo.** Rule sets in [`org-policy`](https://github.com/Stefan-org-1/org-policy) pick and configure rule types coded in the gate. Every repo gets a baseline, then picks more per environment in [`org-manifest`](https://github.com/Stefan-org-1/org-manifest), so a critical payments service and an internal tool can need different checks without separate pipelines. Every verdict lists what was met and not met, with links to the rule's definition.
 - **Releases move through test, staging and prod.** Merging only runs CI. Releases are immutable `X.Y.Z` tags. Prod takes only a release that went to staging first.
-- **Change requests, where a repo's rule sets ask for one.** A change request is a reviewed file in `change-requests`, naming the version, environments and a window. Someone on the owning team approves it, never the requester or deployer. An emergency change, approved by a sentinel and a manager and lasting at most 24 hours, overrides soft rules such as deploy hours and staging. It never overrides review, scans or the release.
+- **Change requests, where a repo's rule sets ask for one.** A change request is a reviewed file in [`change-requests`](https://github.com/Stefan-org-1/change-requests), naming the version, environments and a window. Someone on the owning team approves it, never the requester or deployer. An emergency change, approved by a sentinel and a manager and lasting at most 24 hours, overrides soft rules such as deploy hours and staging. It never overrides review, scans or the release.
 - **Mandatory scans prove where they ran.** The central scan template signs its result. The gate accepts only results signed by that template, not by a team's workflow.
 - **Prod deploys to Azure with no stored secret.** The deploy job logs in with GitHub's OIDC token. Azure trusts the token only if it names the repo, the environment and the central deploy template. [Shown](#deploy-credentials): a rogue job that got through review, release, staging and change approval was refused by Azure, while the template's job deployed.
 - **The org is code.** Repos, teams, rulesets, environments and the Actions policy come from reviewed files. Terraform plans every hour and on every change, and a person approves each apply. A change made by hand shows up in the next plan, and the next approved apply reverts it.
@@ -52,7 +52,7 @@ The bigger pieces worth building next, each with the problem and the approach.
 
 **Problem:** the identity, role and trust rule were created in the portal. Each new repo, environment or template major is hand work, and nothing reverts a hand change.
 
-**Approach:** a separate Terraform stack fed by `org-manifest`, with one trust rule per template major. Deleting an old major's rule is the migration deadline. The stack logs in to Azure with OIDC from its own workflow. It stays apart from the GitHub stack so one apply cannot break both.
+**Approach:** a separate Terraform stack fed by [`org-manifest`](https://github.com/Stefan-org-1/org-manifest), with one trust rule per template major. Deleting an old major's rule is the migration deadline. The stack logs in to Azure with OIDC from its own workflow. It stays apart from the GitHub stack so one apply cannot break both.
 </details>
 
 <details>
@@ -137,12 +137,12 @@ flowchart LR
 
 ## Gates and rule sets
 
-The gate checks every PR before merge and every deploy before it gets its environment. What it checks comes from **rule sets**: small named groups of rules, kept as YAML in `org-policy`. Each repo picks its sets in `org-manifest`.
+The gate checks every PR before merge and every deploy before it gets its environment. What it checks comes from **rule sets**: small named groups of rules, kept as YAML in [`org-policy`](https://github.com/Stefan-org-1/org-policy). Each repo picks its sets in [`org-manifest`](https://github.com/Stefan-org-1/org-manifest).
 
 - Every repo gets the baseline sets. Its manifest entry adds more, per environment.
 - **Hard** sets must pass. **Soft** sets, such as deploy hours, can be overridden by an emergency change approved by a sentinel and a manager.
 - Rule sets are chosen per repo and environment, so teams are not forced into one workflow. A low-risk internal tool might deploy to prod from `main` with a scan, while a payments service needs a release, staging and a change request.
-- Changing what a repo needs is a one-line manifest change. A new kind of check is a new rule type in `platform-gate`.
+- Changing what a repo needs is a one-line manifest change. A new kind of check is a new rule type in [`platform-gate`](https://github.com/Stefan-org-1/platform-gate).
 
 <details>
 <summary>Example: what payments-web needs in each environment</summary>
@@ -234,7 +234,7 @@ GitHub fills in every part from the run. `environment:prod` appears only after t
 | Identity `id-payments-web-prod`, one per app and environment | Azure, resource group `rg-platform-identities`, which teams cannot change |
 | Role: Tag Contributor on `rg-payments-web-prod` only. The mock deploy tags the group with the version | Azure |
 | Trust rule, matched exactly | Azure, on the identity |
-| Subject format with `job_workflow_ref`, set per repo | `org-terraform` |
+| Subject format with `job_workflow_ref`, set per repo | [`org-terraform`](https://github.com/Stefan-org-1/org-terraform) |
 | Tenant, subscription, client ID and resource group, as variables on the environment. They identify, they grant nothing | `org-terraform` |
 
 The rogue job demo: [payments-web#9](https://github.com/Stefan-org-1/payments-web/pull/9) adds a job `sneaky` with `environment: prod` to the team's `deploy.yml`, and is kept on `main` as the example. A sentinel approved it, playing one who missed it. Release `1.0.2` to prod ([run](https://github.com/Stefan-org-1/payments-web/actions/runs/41681768160)): the gate approved the run, so both jobs started.
@@ -248,7 +248,7 @@ Run from a branch instead of a release, the same job never started: [the gate re
 
 ## The org as code
 
-`org-terraform` applies `org-manifest` and `org-policy` to GitHub.
+[`org-terraform`](https://github.com/Stefan-org-1/org-terraform) applies [`org-manifest`](https://github.com/Stefan-org-1/org-manifest) and [`org-policy`](https://github.com/Stefan-org-1/org-policy) to GitHub.
 
 - **Reviewed input.** A team edits its own manifest file, and its sentinels or managers approve, enforced by code-owner review. A validator rejects files that define another team, widen access, or name rule sets that do not exist.
 - **Plan automatically, apply by decision.** The `reconcile` workflow plans hourly and on every change, and summarizes it: destroys first, then links to what merged since the last apply. A member of `group-org-approvers` approves the apply, which applies exactly the reviewed plan.
@@ -261,14 +261,14 @@ Details: [org-terraform](https://github.com/Stefan-org-1/org-terraform#how-chang
 
 | Guarantee | How | Where |
 |---|---|---|
-| Org changes are reviewed by the right people | Code-owner review: a team's sentinels or managers for its manifest file, platform for the rest. A validator rejects tampering | `org-manifest` `CODEOWNERS` and `validate.py` |
-| Org changes are applied by a person's decision | The apply job waits for `group-org-approvers` | `org-terraform` `reconcile` |
+| Org changes are reviewed by the right people | Code-owner review: a team's sentinels or managers for its manifest file, platform for the rest. A validator rejects tampering | [`org-manifest`](https://github.com/Stefan-org-1/org-manifest) `CODEOWNERS` and `validate.py` |
+| Org changes are applied by a person's decision | The apply job waits for `group-org-approvers` | [`org-terraform`](https://github.com/Stefan-org-1/org-terraform) `reconcile` |
 | Only approved repos exist and deploy | Repos are created from the manifest. Deploys of repos not active in it are rejected | `org-manifest`, rule set `platform-integrity` |
-| Mandatory scans on every change: secrets, SonarQube | `scan.yml` runs them in its own job and signs the result. The gate requires it from `scan.yml` | `ci-templates` `scan.yml`, rule set `scanned` |
+| Mandatory scans on every change: secrets, SonarQube | `scan.yml` runs them in its own job and signs the result. The gate requires it from `scan.yml` | [`ci-templates`](https://github.com/Stefan-org-1/ci-templates) `scan.yml`, rule set `scanned` |
 | Workflow changes reviewed by a sentinel | The gate requires a sentinel's approval when `.github/workflows/` changes | Rule set `workflow-sentinel` |
 | Prod deploys only through the central template | The gate checks the run used `deploy.yml`. Azure trusts only that template's job | Rule set `central-deploy`, Azure trust rule |
 | No stored deploy credentials | OIDC token swapped for a short-lived Azure credential | `ci-templates` `deploy.yml`, `org-terraform` |
-| Prod deploys approved by the owning team, not the requester or deployer | Change request approvers checked against the owning team | `change-requests`, rule set `change-team` |
+| Prod deploys approved by the owning team, not the requester or deployer | Change request approvers checked against the owning team | [`change-requests`](https://github.com/Stefan-org-1/change-requests), rule set `change-team` |
 | Prod gets only releases, tested in staging first | Release tags are immutable. The gate requires a release on `main` or `release/X.Y.z`, deployed to staging | Rule sets `released`, `staged`, tag ruleset `release-tags` |
 | Green CI, inside deploy hours | Soft rule sets, overridable by an emergency change | Rule sets `green-pipeline`, `deploy-window` |
 | Emergency changes approved outside the deployer, time-limited | At most 24 hours, needs a sentinel and a manager of the owning team | `org-policy/baseline.yaml` |
@@ -278,7 +278,7 @@ Details: [org-terraform](https://github.com/Stefan-org-1/org-terraform#how-chang
 ## Known gaps
 
 - Only payments-web prod uses OIDC. Test and staging have no Azure identity.
-- Anyone who can tag `ci-templates` can create a trusted template version. A tag ruleset should limit that to platform.
+- Anyone who can tag [`ci-templates`](https://github.com/Stefan-org-1/ci-templates) can create a trusted template version. A tag ruleset should limit that to platform.
 - The gate's protection rule is attached to environments by hand, so Terraform does not restore it.
 - A plan cannot show whether the apply will be allowed, so a missing permission first shows up as a partial apply on the real org. No clear answer yet: a test org only helps if it matches the real one exactly.
 
@@ -289,7 +289,7 @@ Details: [org-terraform](https://github.com/Stefan-org-1/org-terraform#how-chang
 - `sentinels-<area>`, `managers-<area>`: the owning team's own sentinels and managers, nested under the groups.
 - `group-org-approvers`: who approves org changes.
 
-Membership is declared in `org-manifest` and applied by `org-terraform`.
+Membership is declared in [`org-manifest`](https://github.com/Stefan-org-1/org-manifest) and applied by [`org-terraform`](https://github.com/Stefan-org-1/org-terraform).
 
 ## More
 
