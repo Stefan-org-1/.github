@@ -7,8 +7,9 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 ## Highlights
 
 - **Guardrails live outside team repos.** A GitHub App, the gate, is a required merge check and the protection rule on every deploy environment. Teams have write access, not admin, so they cannot change either.
-- **Rules are data.** Rule sets in `org-policy` pick and configure rule types coded in the gate. Each repo picks its sets per environment in `org-manifest`. Every verdict lists what was met and not met, with links to the rule's definition.
-- **Releases move through test, staging and prod.** Merging only runs CI. Releases are immutable `X.Y.Z` tags. Prod takes only a release that went to staging first, inside deploy hours, covered by a change request approved by the owning team, never by the requester or deployer.
+- **Rules are data, chosen per repo.** Rule sets in `org-policy` pick and configure rule types coded in the gate. Every repo gets a baseline, then picks more per environment in `org-manifest`, so a critical payments service and an internal tool can need different checks without separate pipelines. Every verdict lists what was met and not met, with links to the rule's definition.
+- **Releases move through test, staging and prod.** Merging only runs CI. Releases are immutable `X.Y.Z` tags. Prod takes only a release that went to staging first.
+- **Deploys need an approved change request.** A change request is a reviewed file in `change-requests`, naming the version, environments and a window. Someone on the owning team approves it, never the requester or deployer. An emergency change, approved by a sentinel and a manager and lasting at most 24 hours, overrides soft rules such as deploy hours and staging. It never overrides review, scans or the release.
 - **Mandatory scans prove where they ran.** The central scan template signs its result. The gate accepts only results signed by that template, not by a team's workflow.
 - **Prod deploys to Azure with no stored secret.** The deploy job logs in with GitHub's OIDC token. Azure trusts the token only if it names the repo, the environment and the central deploy template. [Shown](#deploy-credentials): a rogue job that got through review, release, staging and change approval was refused by Azure, while the template's job deployed.
 - **The org is code.** Repos, teams, rulesets, environments and the Actions policy come from reviewed files. Terraform plans every hour and on every change, and a person approves each apply. A change made by hand shows up in the next plan, and the next approved apply reverts it.
@@ -23,7 +24,7 @@ What broke or surprised, and what changed because of it:
 | The gate checked that a deploy **run** used the central template, not which **job** asked for `prod`. A job a team adds with `environment: prod` gets the environment's secrets | Deploy credentials moved out of GitHub, to OIDC bound to the template. Gate-side check in the backlog |
 | A major template version is part of the cloud trust rule | `deploy-v2`, not a change to v1. Wildcard matching exists in Azure but is in preview, so not used |
 | `terraform plan` does not check permissions. The apply failed partway on a permission the App lacked | Granted the permission and applied the rest. Terraform has no rollback; state recorded what succeeded. Open: nothing found it before the apply |
-| A merge that bypasses the `policy` check cannot be released or deployed to prod. An emergency change cannot override it either: `released` is a hard rule set | By design: the check is the proof of review. An urgent fix goes through a fast PR, not a bypass |
+| A merge that bypasses the `policy` check cannot be released or deployed to prod. An emergency change cannot override it either: `released` is a hard rule set | By design: the check is the proof of review. An urgent fix still goes through a PR; an emergency change skips only deploy hours and staging |
 | Scheduled workflows are best effort. The gate's 10-minute schedule once skipped 7 hours | Run by hand in the lab. A webhook relay is in the backlog |
 
 ## Repos
@@ -80,6 +81,7 @@ The gate checks every PR before merge and every deploy before it gets its enviro
 
 - Every repo gets the baseline sets. Its manifest entry adds more, per environment.
 - **Hard** sets must pass. **Soft** sets, such as deploy hours, can be overridden by an emergency change approved by a sentinel and a manager.
+- Rule sets are chosen per repo and environment, so teams are not forced into one workflow. A low-risk internal tool might deploy to prod from `main` with a scan, while a payments service needs a release, staging and a change request.
 - Changing what a repo needs is a one-line manifest change. A new kind of check is a new rule type in `platform-gate`.
 
 <details>
