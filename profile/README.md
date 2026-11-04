@@ -31,7 +31,9 @@ The bigger pieces worth building next, each with the problem and the approach.
 
 **Problem:** GitHub approves a deploy per run and environment, not per job. A job a team adds with `environment: prod` passes with the template's job and gets the environment's secrets. OIDC already keeps it away from Azure.
 
-**Approach:** teams keep adding any jobs they like. Only the `environment:` key on a job is restricted. When GitHub asks the gate to approve a run for a protected environment, the gate reads the workflow file at the run's commit and rejects the run if a job that names that environment is not a call to `deploy.yml`. `environment:` can be an expression, so a job whose environment the gate cannot resolve is rejected too.
+**Approach:** teams keep adding any jobs they like. Only the `environment:` key on a job is restricted. A new baseline merge rule set parses the PR's workflow files and fails the `policy` check if a job that names a protected environment is not a call to `deploy.yml`. `environment:` can be an expression, so a job whose environment the gate cannot resolve fails too. The team learns at PR time, with the job named.
+
+This is enough wherever a deploy requires the `policy` check, as `released` and `from-main` do: the workflow file that runs is the one at that commit. Before merge, a branch run can still reach the job, but the gate rejects the run before the job starts, so it gets nothing.
 </details>
 
 <details>
