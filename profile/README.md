@@ -6,7 +6,7 @@ Product teams own their repos and pipelines. The platform team owns the guardrai
 
 ## Highlights
 
-- **Guardrails live outside team repos.** A GitHub App, the gate, is a required merge check and the protection rule on every deploy environment. Teams have write access, not admin, so they cannot change either.
+- **Gates are GitHub Apps, outside team repos.** An App can be a required merge check and a protection rule on deploy environments. The lab runs one, `platform-gate`, for both; another App can be added where a gate needs its own permissions or owner. Teams have write access, not admin, so they cannot remove a gate.
 - **Rules are data, chosen per repo.** Rule sets in `org-policy` pick and configure rule types coded in the gate. Every repo gets a baseline, then picks more per environment in `org-manifest`, so a critical payments service and an internal tool can need different checks without separate pipelines. Every verdict lists what was met and not met, with links to the rule's definition.
 - **Releases move through test, staging and prod.** Merging only runs CI. Releases are immutable `X.Y.Z` tags. Prod takes only a release that went to staging first.
 - **Change requests, where a repo's rule sets ask for one.** A change request is a reviewed file in `change-requests`, naming the version, environments and a window. Someone on the owning team approves it, never the requester or deployer. An emergency change, approved by a sentinel and a manager and lasting at most 24 hours, overrides soft rules such as deploy hours and staging. It never overrides review, scans or the release.
